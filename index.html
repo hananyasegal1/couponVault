@@ -478,9 +478,42 @@ function save() {
     localStorage.removeItem(STORAGE_KEY+'_tmp');
     localStorage.setItem(VERSION_KEY, SCHEMA_VERSION.toString());
     updateHealthBar();
+    // Auto-sync to Google Drive if already signed in
+    if (gAccessToken) autoSyncToGoogleDrive();
   } catch(e) {
     showToast(e.name==='QuotaExceededError'?'❌ Storage full! Export your data.':'❌ Save failed','error');
   }
+}
+
+// Auto-sync — silent background save to Google Drive
+// Debounced to avoid multiple rapid calls
+let autoSyncTimer = null;
+function autoSyncToGoogleDrive() {
+  clearTimeout(autoSyncTimer);
+  autoSyncTimer = setTimeout(async () => {
+    const blob = new Blob([JSON.stringify({
+      schemaVersion: SCHEMA_VERSION,
+      exportedAt: new Date().toISOString(),
+      coupons, history: usageHistory
+    }, null, 2)], {type:'application/json'});
+    try {
+      if (gDriveFileId) {
+        await updateDriveFile(gDriveFileId, blob);
+      } else {
+        const id = await createDriveFile(`couponvault-backup.json`, blob);
+        gDriveFileId = id;
+        localStorage.setItem('drive_file_id', id);
+      }
+      updateDriveUI(true, '☁️ Auto-synced ' + new Date().toLocaleTimeString());
+    } catch(e) {
+      if (e.status === 401) {
+        gAccessToken = null;
+        localStorage.removeItem('g_token');
+        updateDriveUI(false);
+      }
+      console.warn('Auto-sync failed:', e.message);
+    }
+  }, 2000); // Wait 2 seconds after last change before syncing
 }
 
 // ═══════════════════════════════════
@@ -803,11 +836,11 @@ function signInToGoogle(){
   });
   client.requestAccessToken();
 }
-function updateDriveUI(on){
+function updateDriveUI(on, syncMsg){
   document.getElementById('gdriveDot').className='gdrive-dot '+(on?'on':'off');
-  document.getElementById('gdriveLabel').textContent=on?'Connected to Google Drive ✓':'Not connected to Google Drive';
+  document.getElementById('gdriveLabel').textContent=on?(syncMsg||'Connected to Google Drive ✓'):'Not connected to Google Drive';
   document.getElementById('gdriveBtn').textContent=on?'Sign out':'Sign in';
-  document.getElementById('driveDesc').textContent=on?'Save directly to your Google Drive':'Sign in to save directly';
+  document.getElementById('driveDesc').textContent=on?'Auto-syncing after every change ✓':'Sign in to enable auto-sync';
 }
 async function saveToGoogleDrive(){
   if(!gAccessToken){signInToGoogle();return;}
