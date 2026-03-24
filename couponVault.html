@@ -1,0 +1,958 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#0a0a0f">
+<title>Coupon Vault</title>
+<link href="https://fonts.googleapis.com/css2?family=Syne:wght@400;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<style>
+:root {
+  --bg:#0a0a0f;--surface:#13131a;--surface2:#1a1a24;--border:#2a2a3a;
+  --accent:#c8f135;--accent2:#35f1c8;--accent3:#f135a0;
+  --text:#f0f0f5;--text2:#8888aa;
+  --danger:#ff4466;--warning:#ffaa00;--success:#44ff88;
+  --radius:16px;--radius-sm:8px;--shadow:0 4px 30px rgba(0,0,0,0.3);
+}
+[data-theme="light"] {
+  --bg:#f5f5f0;--surface:#ffffff;--surface2:#f0f0eb;--border:#e0e0d8;
+  --text:#1a1a1a;--text2:#666660;--shadow:0 4px 30px rgba(0,0,0,0.08);
+}
+[data-theme="light"] body::before {
+  background-image:linear-gradient(rgba(0,0,0,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(0,0,0,0.03) 1px,transparent 1px);
+}
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'DM Mono',monospace;background:var(--bg);color:var(--text);min-height:100vh;overflow-x:hidden;transition:background 0.3s,color 0.3s}
+body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(rgba(200,241,53,0.03) 1px,transparent 1px),linear-gradient(90deg,rgba(200,241,53,0.03) 1px,transparent 1px);background-size:40px 40px;pointer-events:none;z-index:0}
+
+/* HEADER */
+.header{position:sticky;top:0;z-index:100;background:rgba(10,10,15,0.92);backdrop-filter:blur(20px);border-bottom:1px solid var(--border);padding:14px 20px;display:flex;align-items:center;justify-content:space-between;gap:10px;transition:background 0.3s}
+[data-theme="light"] .header{background:rgba(245,245,240,0.92)}
+.logo{font-family:'Syne',sans-serif;font-weight:800;font-size:1.3rem;display:flex;align-items:center;gap:8px;flex-shrink:0}
+.logo-icon{width:32px;height:32px;background:var(--accent);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:1rem}
+.logo span{color:var(--accent)}
+.header-actions{display:flex;gap:6px;align-items:center}
+.add-btn{background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-sm);padding:9px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.82rem;cursor:pointer;transition:all 0.2s}
+.add-btn:hover{background:#d4ff44;transform:translateY(-1px)}
+.icon-btn{background:var(--surface);color:var(--text2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:9px 12px;font-size:0.9rem;cursor:pointer;transition:all 0.2s}
+.icon-btn:hover{border-color:var(--accent2);color:var(--accent2)}
+
+/* MAIN */
+.main{position:relative;z-index:1;padding:20px;max-width:600px;margin:0 auto}
+
+/* HEALTH BAR */
+.health-bar{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;margin-bottom:20px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.health-info{display:flex;align-items:center;gap:10px;flex:1}
+.health-dot{width:8px;height:8px;border-radius:50%;background:var(--success);flex-shrink:0}
+.health-dot.warning{background:var(--warning)}
+.health-dot.danger{background:var(--danger)}
+.health-text{font-size:0.73rem;color:var(--text2)}
+.health-text strong{color:var(--text)}
+.health-actions{display:flex;gap:6px}
+.health-btn{background:none;border:1px solid var(--border);border-radius:var(--radius-sm);padding:4px 10px;font-size:0.7rem;color:var(--text2);cursor:pointer;font-family:'DM Mono',monospace;transition:all 0.2s}
+.health-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* STATS */
+.stats{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:20px}
+.stat-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 10px;text-align:center;cursor:pointer;transition:all 0.2s}
+.stat-card:hover{border-color:var(--accent)}
+.stat-card.active-stat{border-color:var(--accent);background:rgba(200,241,53,0.05)}
+.stat-number{font-family:'Syne',sans-serif;font-weight:800;font-size:1.4rem;color:var(--accent)}
+.stat-label{font-size:0.65rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-top:2px}
+
+/* CONTROLS */
+.controls{display:flex;gap:10px;margin-bottom:16px;flex-wrap:wrap}
+.search-wrap{flex:1;min-width:180px;position:relative}
+.search-wrap::before{content:'⌕';position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text2);font-size:1.1rem}
+.search-input{width:100%;background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px 10px 36px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.85rem;outline:none;transition:border-color 0.2s}
+.search-input:focus{border-color:var(--accent)}
+.search-input::placeholder{color:var(--text2)}
+.filter-select{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 12px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.82rem;outline:none;cursor:pointer}
+
+/* CATEGORIES */
+.categories{display:flex;gap:8px;margin-bottom:20px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+.categories::-webkit-scrollbar{display:none}
+.cat-pill{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:6px 14px;font-size:0.75rem;color:var(--text2);cursor:pointer;white-space:nowrap;transition:all 0.2s;font-family:'DM Mono',monospace}
+.cat-pill:hover,.cat-pill.active{background:var(--accent);border-color:var(--accent);color:var(--bg)}
+
+/* COUPON CARDS */
+.coupons-list{display:flex;flex-direction:column;gap:14px}
+.card-wrap{position:relative;border-radius:var(--radius);overflow:hidden}
+.swipe-left-action{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--danger);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border-radius:0 var(--radius) var(--radius) 0}
+.swipe-right-action{position:absolute;left:0;top:0;bottom:0;width:80px;background:var(--success);display:flex;align-items:center;justify-content:center;font-size:1.3rem;border-radius:var(--radius) 0 0 var(--radius)}
+.coupon-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;transition:transform 0.2s,border-color 0.2s,box-shadow 0.2s;animation:slideIn 0.3s ease;position:relative;z-index:1;touch-action:pan-y}
+@keyframes slideIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+.coupon-card:not(.swiping):hover{border-color:var(--accent);box-shadow:var(--shadow);transform:translateY(-2px)}
+.coupon-card.expiring-soon{border-color:var(--warning)}
+.coupon-card.expired{opacity:0.5;border-color:var(--danger)}
+.coupon-card.used{opacity:0.65;border-color:var(--accent2);border-style:dashed}
+.used-badge{display:inline-flex;align-items:center;gap:4px;font-size:0.68rem;background:rgba(53,241,200,0.1);color:var(--accent2);border:1px solid rgba(53,241,200,0.3);border-radius:20px;padding:2px 8px;margin-left:6px}
+.coupon-header{display:flex;align-items:center;justify-content:space-between;padding:14px 16px 10px}
+.coupon-category{font-size:0.7rem;text-transform:uppercase;letter-spacing:1.5px;padding:3px 10px;border-radius:20px;font-weight:500}
+.coupon-actions{display:flex;gap:5px}
+.action-btn{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:5px 9px;color:var(--text2);font-size:0.72rem;cursor:pointer;transition:all 0.2s;font-family:'DM Mono',monospace}
+.action-btn:hover{color:var(--text);border-color:var(--text2)}
+.action-btn.delete:hover{color:var(--danger);border-color:var(--danger)}
+.action-btn.use:hover{color:var(--accent2);border-color:var(--accent2)}
+.action-btn.qr:hover{color:var(--accent);border-color:var(--accent)}
+.coupon-body{padding:0 16px 14px}
+.coupon-name{font-family:'Syne',sans-serif;font-weight:700;font-size:1.05rem;margin-bottom:6px;display:flex;align-items:center;flex-wrap:wrap;gap:4px}
+.coupon-code-wrap{display:flex;align-items:center;gap:8px;margin-bottom:10px}
+.coupon-code{background:var(--surface2);border:1px dashed var(--border);border-radius:var(--radius-sm);padding:6px 12px;font-size:0.88rem;color:var(--accent);letter-spacing:2px;font-weight:500;flex:1;text-align:center}
+.copy-btn{background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-sm);padding:6px 12px;font-size:0.75rem;cursor:pointer;font-family:'Syne',sans-serif;font-weight:700;transition:all 0.2s;white-space:nowrap}
+.copy-btn:hover{background:#d4ff44}
+.copy-btn.copied{background:var(--success)}
+.coupon-footer{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+.expiry-badge{font-size:0.75rem;padding:4px 10px;border-radius:20px}
+.expiry-badge.valid{background:rgba(68,255,136,0.1);color:var(--success);border:1px solid rgba(68,255,136,0.2)}
+.expiry-badge.warning{background:rgba(255,170,0,0.1);color:var(--warning);border:1px solid rgba(255,170,0,0.2)}
+.expiry-badge.expired{background:rgba(255,68,102,0.1);color:var(--danger);border:1px solid rgba(255,68,102,0.2)}
+.expiry-badge.used-tag{background:rgba(53,241,200,0.1);color:var(--accent2);border:1px solid rgba(53,241,200,0.2)}
+.coupon-link{color:var(--accent2);font-size:0.75rem;text-decoration:none;display:flex;align-items:center;gap:4px;transition:opacity 0.2s}
+.coupon-link:hover{opacity:0.7}
+.used-on{font-size:0.7rem;color:var(--text2);margin-top:4px}
+
+/* HISTORY */
+.history-item{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;display:flex;align-items:center;gap:14px}
+.history-icon{width:38px;height:38px;border-radius:var(--radius-sm);background:rgba(53,241,200,0.1);display:flex;align-items:center;justify-content:center;font-size:1.1rem;flex-shrink:0}
+.history-name{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;margin-bottom:3px}
+.history-meta{font-size:0.72rem;color:var(--text2)}
+
+/* EMPTY */
+.empty-state{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty-icon{font-size:3rem;margin-bottom:16px;opacity:0.5}
+.empty-title{font-family:'Syne',sans-serif;font-weight:700;font-size:1.2rem;color:var(--text);margin-bottom:8px}
+
+/* MODALS */
+.modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,0.8);backdrop-filter:blur(10px);z-index:200;display:flex;align-items:flex-end;justify-content:center;opacity:0;pointer-events:none;transition:opacity 0.3s}
+.modal-overlay.open{opacity:1;pointer-events:all}
+.modal{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius) var(--radius) 0 0;padding:24px 20px;width:100%;max-width:600px;transform:translateY(100%);transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);max-height:90vh;overflow-y:auto}
+.modal-overlay.open .modal{transform:translateY(0)}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:'Syne',sans-serif;font-weight:800;font-size:1.2rem;margin-bottom:18px;color:var(--accent)}
+.form-group{margin-bottom:14px}
+.form-label{display:block;font-size:0.72rem;color:var(--text2);text-transform:uppercase;letter-spacing:1px;margin-bottom:5px}
+.form-input,.form-select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;color:var(--text);font-family:'DM Mono',monospace;font-size:0.88rem;outline:none;transition:border-color 0.2s}
+.form-input:focus,.form-select:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text2)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.submit-btn{width:100%;background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-sm);padding:13px;font-family:'Syne',sans-serif;font-weight:800;font-size:0.95rem;cursor:pointer;margin-top:8px;transition:all 0.2s;letter-spacing:1px}
+.submit-btn:hover{background:#d4ff44;box-shadow:0 4px 20px rgba(200,241,53,0.3)}
+
+/* BACKUP OPTIONS */
+.backup-options{display:flex;flex-direction:column;gap:10px;margin-bottom:20px}
+.backup-option{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px;cursor:pointer;transition:all 0.2s;display:flex;align-items:center;gap:14px}
+.backup-option:hover{border-color:var(--accent);transform:translateX(2px)}
+.backup-option-icon{width:42px;height:42px;border-radius:var(--radius-sm);display:flex;align-items:center;justify-content:center;font-size:1.3rem;flex-shrink:0}
+.backup-option-title{font-family:'Syne',sans-serif;font-weight:700;font-size:0.9rem;margin-bottom:3px}
+.backup-option-desc{font-size:0.72rem;color:var(--text2)}
+.section-divider{border:none;border-top:1px solid var(--border);margin:18px 0}
+.import-area{border:2px dashed var(--border);border-radius:var(--radius);padding:24px;text-align:center;cursor:pointer;transition:all 0.2s;margin-bottom:12px}
+.import-area:hover{border-color:var(--accent)}
+
+/* GOOGLE DRIVE STATUS */
+.gdrive-status{background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius-sm);padding:10px 14px;margin-bottom:12px;font-size:0.77rem;display:flex;align-items:center;gap:10px}
+.gdrive-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.gdrive-dot.on{background:var(--success)}
+.gdrive-dot.off{background:var(--text2)}
+
+/* NOTIF SETTINGS */
+.notif-row{display:flex;align-items:center;justify-content:space-between;padding:12px 0;border-bottom:1px solid var(--border)}
+.notif-row:last-child{border-bottom:none}
+.notif-row-text{font-size:0.85rem}
+.notif-row-sub{font-size:0.72rem;color:var(--text2);margin-top:2px}
+.toggle{width:44px;height:24px;background:var(--border);border-radius:12px;cursor:pointer;position:relative;transition:background 0.2s;flex-shrink:0;border:none}
+.toggle.on{background:var(--accent)}
+.toggle::after{content:'';position:absolute;width:18px;height:18px;background:white;border-radius:50%;top:3px;left:3px;transition:transform 0.2s}
+.toggle.on::after{transform:translateX(20px)}
+
+/* QR */
+#qrcode{display:flex;justify-content:center;padding:20px;background:white;border-radius:var(--radius);width:fit-content;margin:20px auto}
+.qr-instructions{font-size:0.78rem;color:var(--text2);line-height:1.6;margin-top:12px;background:var(--surface2);border-radius:var(--radius-sm);padding:12px;text-align:left}
+
+/* TOAST */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%) translateY(100px);background:var(--surface2);border:1px solid var(--accent);border-radius:var(--radius-sm);padding:10px 20px;font-size:0.83rem;color:var(--accent);z-index:300;transition:transform 0.3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;max-width:90vw}
+.toast.show{transform:translateX(-50%) translateY(0)}
+.toast.error{border-color:var(--danger);color:var(--danger)}
+.toast.info{border-color:var(--accent2);color:var(--accent2)}
+
+/* NOTIF BANNER */
+.notif-banner{background:linear-gradient(135deg,rgba(200,241,53,0.08),rgba(53,241,200,0.08));border:1px solid rgba(200,241,53,0.25);border-radius:var(--radius);padding:12px 16px;margin-bottom:16px;display:flex;align-items:center;justify-content:space-between;gap:12px}
+.notif-btn{background:var(--accent);color:var(--bg);border:none;border-radius:var(--radius-sm);padding:7px 14px;font-family:'Syne',sans-serif;font-weight:700;font-size:0.78rem;cursor:pointer}
+
+/* CATEGORY COLORS */
+.cat-food{background:rgba(255,100,50,0.12);color:#ff6432;border:1px solid rgba(255,100,50,0.25)}
+.cat-shopping{background:rgba(200,241,53,0.12);color:var(--accent);border:1px solid rgba(200,241,53,0.25)}
+.cat-travel{background:rgba(53,241,200,0.12);color:var(--accent2);border:1px solid rgba(53,241,200,0.25)}
+.cat-entertainment{background:rgba(241,53,160,0.12);color:var(--accent3);border:1px solid rgba(241,53,160,0.25)}
+.cat-other{background:rgba(136,136,170,0.12);color:var(--text2);border:1px solid rgba(136,136,170,0.25)}
+
+@media(max-width:400px){.form-row{grid-template-columns:1fr}.stats{grid-template-columns:repeat(2,1fr)}}
+</style>
+</head>
+<body data-theme="dark">
+
+<header class="header">
+  <div class="logo"><div class="logo-icon">🎟</div>Coupon<span>Vault</span></div>
+  <div class="header-actions">
+    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
+    <button class="icon-btn" onclick="openNotifSettings()" title="Notifications">🔔</button>
+    <button class="icon-btn" onclick="openHistoryModal()" title="Usage history">📋</button>
+    <button class="icon-btn" onclick="openBackupModal()" title="Backup">⟳</button>
+    <button class="add-btn" onclick="openModal()">+ Add</button>
+  </div>
+</header>
+
+<main class="main">
+  <div class="notif-banner" id="notifBanner" style="display:none">
+    <div style="font-size:0.8rem;color:var(--text2)"><strong style="color:var(--accent)">🔔 Enable notifications</strong><br>Get alerts 7, 3 and 1 day before expiry</div>
+    <button class="notif-btn" onclick="requestNotifications()">Enable</button>
+  </div>
+
+  <div class="health-bar">
+    <div class="health-info">
+      <div class="health-dot" id="healthDot"></div>
+      <div class="health-text" id="healthText">Checking...</div>
+    </div>
+    <div class="health-actions">
+      <button class="health-btn" onclick="exportJSON()">💾 Backup</button>
+      <button class="health-btn" onclick="validateAndRepair()">🔧 Repair</button>
+    </div>
+  </div>
+
+  <div class="stats">
+    <div class="stat-card active-stat" onclick="setStatFilter('all',this)">
+      <div class="stat-number" id="statTotal">0</div><div class="stat-label">Total</div>
+    </div>
+    <div class="stat-card" onclick="setStatFilter('active',this)">
+      <div class="stat-number" id="statActive" style="color:var(--success)">0</div><div class="stat-label">Active</div>
+    </div>
+    <div class="stat-card" onclick="setStatFilter('expiring',this)">
+      <div class="stat-number" id="statExpiring" style="color:var(--warning)">0</div><div class="stat-label">Expiring</div>
+    </div>
+    <div class="stat-card" onclick="setStatFilter('used',this)">
+      <div class="stat-number" id="statUsed" style="color:var(--accent2)">0</div><div class="stat-label">Used</div>
+    </div>
+  </div>
+
+  <div class="controls">
+    <div class="search-wrap"><input type="text" class="search-input" placeholder="Search coupons..." id="searchInput" oninput="renderCoupons()"></div>
+    <select class="filter-select" id="filterSelect" onchange="renderCoupons()">
+      <option value="all">All</option>
+      <option value="active">Active</option>
+      <option value="expiring">Expiring Soon</option>
+      <option value="expired">Expired</option>
+      <option value="used">Used</option>
+    </select>
+  </div>
+
+  <div class="categories">
+    <div class="cat-pill active" onclick="filterCategory('all',this)">All</div>
+    <div class="cat-pill" onclick="filterCategory('Food',this)">🍕 Food</div>
+    <div class="cat-pill" onclick="filterCategory('Shopping',this)">🛍 Shopping</div>
+    <div class="cat-pill" onclick="filterCategory('Travel',this)">✈️ Travel</div>
+    <div class="cat-pill" onclick="filterCategory('Entertainment',this)">🎬 Entertainment</div>
+    <div class="cat-pill" onclick="filterCategory('Other',this)">📦 Other</div>
+  </div>
+
+  <div class="coupons-list" id="couponsList"></div>
+</main>
+
+<!-- ADD MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event,'modalOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">✦ Add New Coupon</div>
+    <div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="inputName" placeholder="e.g. Amazon 20% Off"></div>
+    <div class="form-group"><label class="form-label">Coupon Code</label><input type="text" class="form-input" id="inputCode" placeholder="e.g. SAVE20"></div>
+    <div class="form-group"><label class="form-label">Link / URL</label><input type="url" class="form-input" id="inputLink" placeholder="https://..."></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Category</label>
+        <select class="form-select" id="inputCategory">
+          <option value="Shopping">🛍 Shopping</option>
+          <option value="Food">🍕 Food</option>
+          <option value="Travel">✈️ Travel</option>
+          <option value="Entertainment">🎬 Entertainment</option>
+          <option value="Other">📦 Other</option>
+        </select>
+      </div>
+      <div class="form-group"><label class="form-label">Expiry Date *</label><input type="date" class="form-input" id="inputExpiry"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Notes</label><input type="text" class="form-input" id="inputNotes" placeholder="Optional..."></div>
+    <button class="submit-btn" onclick="addCoupon()">SAVE COUPON</button>
+  </div>
+</div>
+
+<!-- BACKUP MODAL -->
+<div class="modal-overlay" id="backupModalOverlay" onclick="handleOverlayClick(event,'backupModalOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">⟳ Backup & Transfer</div>
+
+    <div class="backup-options">
+      <div class="backup-option" onclick="exportJSON()">
+        <div class="backup-option-icon" style="background:rgba(200,241,53,0.12)">📥</div>
+        <div>
+          <div class="backup-option-title">Export JSON File</div>
+          <div class="backup-option-desc">Download all coupons + history to device</div>
+        </div>
+        <div style="color:var(--text2);margin-left:auto">→</div>
+      </div>
+
+      <div class="backup-option" onclick="saveToGoogleDrive()">
+        <div class="backup-option-icon" style="background:rgba(66,133,244,0.12)">☁️</div>
+        <div>
+          <div class="backup-option-title">Save to Google Drive</div>
+          <div class="backup-option-desc" id="driveDesc">Sign in to save directly to Drive</div>
+        </div>
+        <div style="color:var(--text2);margin-left:auto">→</div>
+      </div>
+
+      <div class="backup-option" onclick="exportQR()">
+        <div class="backup-option-icon" style="background:rgba(53,241,200,0.12)">📷</div>
+        <div>
+          <div class="backup-option-title">QR Code Transfer</div>
+          <div class="backup-option-desc">Scan with new phone to import instantly</div>
+        </div>
+        <div style="color:var(--text2);margin-left:auto">→</div>
+      </div>
+    </div>
+
+    <div class="gdrive-status">
+      <div class="gdrive-dot off" id="gdriveDot"></div>
+      <div style="flex:1" id="gdriveLabel">Not connected to Google Drive</div>
+      <button class="health-btn" id="gdriveBtn" onclick="toggleGoogleAuth()">Sign in</button>
+    </div>
+
+    <hr class="section-divider">
+    <div class="modal-title" style="font-size:0.95rem;margin-bottom:14px">📤 Import / Restore</div>
+
+    <div class="import-area" onclick="document.getElementById('importFile').click()">
+      <div style="font-size:1.8rem;margin-bottom:6px">📂</div>
+      <div style="font-size:0.82rem;color:var(--text2)">Tap to select a JSON backup file<br><small>Merges without duplicates</small></div>
+    </div>
+    <input type="file" id="importFile" accept=".json" style="display:none" onchange="importJSON(event)">
+
+    <div class="form-group" style="margin-top:10px">
+      <label class="form-label">Or paste JSON directly</label>
+      <textarea class="form-input" id="pasteJSON" rows="3" placeholder='[{"name":"..."}]' style="resize:vertical"></textarea>
+    </div>
+    <button class="submit-btn" onclick="importFromPaste()" style="background:var(--accent2);color:var(--bg)">IMPORT DATA</button>
+  </div>
+</div>
+
+<!-- NOTIFICATION SETTINGS MODAL -->
+<div class="modal-overlay" id="notifModalOverlay" onclick="handleOverlayClick(event,'notifModalOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">🔔 Notification Settings</div>
+    <div class="notif-row">
+      <div><div class="notif-row-text">7 days before expiry</div><div class="notif-row-sub">Early warning</div></div>
+      <button class="toggle" id="toggle7" onclick="toggleNotif('7')"></button>
+    </div>
+    <div class="notif-row">
+      <div><div class="notif-row-text">3 days before expiry</div><div class="notif-row-sub">Reminder</div></div>
+      <button class="toggle" id="toggle3" onclick="toggleNotif('3')"></button>
+    </div>
+    <div class="notif-row">
+      <div><div class="notif-row-text">1 day before expiry</div><div class="notif-row-sub">Urgent alert</div></div>
+      <button class="toggle" id="toggle1" onclick="toggleNotif('1')"></button>
+    </div>
+    <div class="notif-row">
+      <div><div class="notif-row-text">Daily digest</div><div class="notif-row-sub">Morning summary of expiring coupons</div></div>
+      <button class="toggle" id="toggleDigest" onclick="toggleNotif('digest')"></button>
+    </div>
+    <div style="font-size:0.72rem;color:var(--text2);margin-top:16px;padding:10px;background:var(--surface2);border-radius:var(--radius-sm)">
+      ⚠ Notifications require browser permission and work best when the app is installed as a PWA.
+    </div>
+    <button class="submit-btn" onclick="closeNotifSettings()">SAVE SETTINGS</button>
+  </div>
+</div>
+
+<!-- HISTORY MODAL -->
+<div class="modal-overlay" id="historyModalOverlay" onclick="handleOverlayClick(event,'historyModalOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📋 Usage History</div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- QR MODAL -->
+<div class="modal-overlay" id="qrModalOverlay" onclick="handleOverlayClick(event,'qrModalOverlay')">
+  <div class="modal" style="text-align:center">
+    <div class="modal-handle"></div>
+    <div class="modal-title">📷 Scan to Transfer</div>
+    <div id="qrcode"></div>
+    <div class="qr-instructions">
+      <strong style="color:var(--accent)">How to use:</strong><br>
+      1. Open Camera on your new phone<br>
+      2. Point at this QR code<br>
+      3. Tap the link — coupons import automatically<br><br>
+      <small style="color:var(--danger)">⚠ Best for &lt;30 coupons. Use JSON for larger collections.</small>
+    </div>
+    <button class="submit-btn" onclick="closeQRModal()" style="margin-top:14px">Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+<script src="https://accounts.google.com/gsi/client" async></script>
+
+<script>
+// ═══════════════════════════════════
+// CONSTANTS
+// ═══════════════════════════════════
+const SCHEMA_VERSION = 2;
+const STORAGE_KEY = 'coupons';
+const BACKUP_KEY = 'coupons_backup';
+const VERSION_KEY = 'schema_version';
+const HISTORY_KEY = 'coupon_history';
+const NOTIF_KEY = 'notif_settings';
+const STORAGE_WARN = 4 * 1024 * 1024;
+const VALID_CATS = ['Food','Shopping','Travel','Entertainment','Other'];
+const catColors = {Food:'cat-food',Shopping:'cat-shopping',Travel:'cat-travel',Entertainment:'cat-entertainment',Other:'cat-other'};
+const catEmojis = {Food:'🍕',Shopping:'🛍',Travel:'✈️',Entertainment:'🎬',Other:'📦'};
+
+// Google Drive — replace with your own Client ID from console.cloud.google.com
+const GOOGLE_CLIENT_ID = 'YOUR_GOOGLE_CLIENT_ID.apps.googleusercontent.com';
+const DRIVE_SCOPE = 'https://www.googleapis.com/auth/drive.file';
+let gAccessToken = localStorage.getItem('g_token') || null;
+let gDriveFileId = localStorage.getItem('drive_file_id') || null;
+
+let notifSettings = JSON.parse(localStorage.getItem(NOTIF_KEY) || '{"7":true,"3":true,"1":true,"digest":false}');
+
+// ═══════════════════════════════════
+// SCHEMA MIGRATION
+// ═══════════════════════════════════
+function migrateCoupons(data, fromVersion) {
+  let d = [...data];
+  if (fromVersion < 2) {
+    d = d.map(c => ({
+      id: c.id || Date.now().toString()+Math.random().toString(36).slice(2),
+      name: c.name||'Unnamed', code: c.code||'', link: c.link||'',
+      category: VALID_CATS.includes(c.category) ? c.category : 'Other',
+      expiry: c.expiry || new Date().toISOString().split('T')[0],
+      notes: c.notes||'', createdAt: c.createdAt||new Date().toISOString(),
+      used: false, usedAt: null
+    }));
+  }
+  return d;
+}
+
+// ═══════════════════════════════════
+// SAFE LOAD
+// ═══════════════════════════════════
+function loadCoupons() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (!raw) return [];
+    const parsed = JSON.parse(raw);
+    if (!Array.isArray(parsed)) throw new Error('Not array');
+    const ver = parseInt(localStorage.getItem(VERSION_KEY)||'1');
+    const migrated = ver < SCHEMA_VERSION ? migrateCoupons(parsed, ver) : parsed;
+    const valid = migrated.filter(c => c && c.name && c.expiry);
+    localStorage.setItem(VERSION_KEY, SCHEMA_VERSION.toString());
+    return valid;
+  } catch(e) {
+    try {
+      const bk = JSON.parse(localStorage.getItem(BACKUP_KEY)||'[]');
+      showToast('⚠ Recovered from backup','info');
+      return Array.isArray(bk) ? bk.filter(c=>c&&c.name&&c.expiry) : [];
+    } catch { return []; }
+  }
+}
+
+// ═══════════════════════════════════
+// SAFE SAVE
+// ═══════════════════════════════════
+function save() {
+  const json = JSON.stringify(coupons);
+  const bytes = new Blob([json]).size;
+  if (bytes > STORAGE_WARN) showToast('⚠ Storage nearly full! Export now.','error');
+  try {
+    const prev = localStorage.getItem(STORAGE_KEY);
+    if (prev) localStorage.setItem(BACKUP_KEY, prev);
+    localStorage.setItem(STORAGE_KEY+'_tmp', json);
+    localStorage.setItem(STORAGE_KEY, json);
+    localStorage.removeItem(STORAGE_KEY+'_tmp');
+    localStorage.setItem(VERSION_KEY, SCHEMA_VERSION.toString());
+    updateHealthBar();
+  } catch(e) {
+    showToast(e.name==='QuotaExceededError'?'❌ Storage full! Export your data.':'❌ Save failed','error');
+  }
+}
+
+// ═══════════════════════════════════
+// VALIDATE & REPAIR
+// ═══════════════════════════════════
+function validateCoupon(c) {
+  const err = [];
+  if (!c.id) err.push('no id');
+  if (!c.name) err.push('no name');
+  if (!c.expiry||!/^\d{4}-\d{2}-\d{2}$/.test(c.expiry)) err.push('bad expiry');
+  if (!VALID_CATS.includes(c.category)) err.push('bad category');
+  return err;
+}
+function validateAndRepair() {
+  let r = 0;
+  coupons = coupons.map(c => {
+    if (validateCoupon(c).length===0) return c;
+    r++;
+    return {
+      id: c.id||Date.now().toString(), name: c.name||'Unnamed',
+      code: c.code||'', link: c.link||'',
+      category: VALID_CATS.includes(c.category)?c.category:'Other',
+      expiry: /^\d{4}-\d{2}-\d{2}$/.test(c.expiry)?c.expiry:new Date().toISOString().split('T')[0],
+      notes: c.notes||'', createdAt: c.createdAt||new Date().toISOString(),
+      used: !!c.used, usedAt: c.usedAt||null
+    };
+  }).filter(c=>c.name&&c.expiry);
+  save(); renderCoupons();
+  showToast(r>0 ? `🔧 Repaired ${r} coupon(s)` : '✓ Database healthy');
+}
+
+// ═══════════════════════════════════
+// HEALTH BAR
+// ═══════════════════════════════════
+function updateHealthBar() {
+  const dot=document.getElementById('healthDot'), text=document.getElementById('healthText');
+  try {
+    const bytes = new Blob([localStorage.getItem(STORAGE_KEY)||'']).size;
+    const kb = (bytes/1024).toFixed(1);
+    const pct = ((bytes/(5*1024*1024))*100).toFixed(1);
+    const hasBk = !!localStorage.getItem(BACKUP_KEY);
+    if (bytes>STORAGE_WARN) { dot.className='health-dot danger'; text.innerHTML=`<strong>⚠ Critical:</strong> ${kb}KB (${pct}%) — Export now!`; }
+    else if (!hasBk) { dot.className='health-dot warning'; text.innerHTML=`<strong>No backup yet.</strong> ${kb}KB used (${pct}%)`; }
+    else { dot.className='health-dot'; text.innerHTML=`<strong>Healthy.</strong> ${kb}KB (${pct}%) · Backup ✓ · Schema v${SCHEMA_VERSION}`; }
+  } catch { dot.className='health-dot danger'; text.innerHTML='<strong>⚠ Storage error</strong>'; }
+}
+
+// ═══════════════════════════════════
+// STATE
+// ═══════════════════════════════════
+let coupons = loadCoupons();
+let usageHistory = JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
+let activeCategory = 'all';
+
+// ═══════════════════════════════════
+// HELPERS
+// ═══════════════════════════════════
+function getDaysLeft(d){const n=new Date();n.setHours(0,0,0,0);const e=new Date(d);e.setHours(0,0,0,0);return Math.round((e-n)/864e5);}
+function getStatus(c){if(c.used)return'used';const x=getDaysLeft(c.expiry);return x<0?'expired':x<=7?'warning':'valid';}
+function getLabel(c){
+  if(c.used)return`✓ Used${c.usedAt?' on '+new Date(c.usedAt).toLocaleDateString():''}`;
+  const x=getDaysLeft(c.expiry);
+  if(x<0)return`⚠ Expired ${Math.abs(x)}d ago`;
+  if(x===0)return'⚡ Expires today!';
+  if(x===1)return'⚡ Tomorrow';
+  if(x<=7)return`⏳ ${x} days left`;
+  return`✓ ${x} days left`;
+}
+function escapeHtml(s){return String(s).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m]));}
+
+// ═══════════════════════════════════
+// THEME
+// ═══════════════════════════════════
+let currentTheme = localStorage.getItem('theme')||'dark';
+function applyTheme(t){
+  document.body.setAttribute('data-theme',t);
+  document.getElementById('themeBtn').textContent=t==='dark'?'🌙':'☀️';
+  currentTheme=t; localStorage.setItem('theme',t);
+}
+function toggleTheme(){ applyTheme(currentTheme==='dark'?'light':'dark'); }
+
+// ═══════════════════════════════════
+// RENDER
+// ═══════════════════════════════════
+function renderCoupons() {
+  const s=document.getElementById('searchInput').value.toLowerCase();
+  const f=document.getElementById('filterSelect').value;
+  let list=coupons.filter(c=>{
+    const ms=c.name.toLowerCase().includes(s)||(c.code||'').toLowerCase().includes(s)||(c.notes||'').toLowerCase().includes(s);
+    const st=getStatus(c);
+    const mf=f==='all'||(f==='active'&&st!=='expired'&&st!=='used')||(f==='expiring'&&st==='warning')||(f==='expired'&&st==='expired')||(f==='used'&&st==='used');
+    return ms&&mf&&(activeCategory==='all'||c.category===activeCategory);
+  }).sort((a,b)=>{
+    if(a.used&&!b.used)return 1;
+    if(!a.used&&b.used)return -1;
+    return new Date(a.expiry)-new Date(b.expiry);
+  });
+
+  const el=document.getElementById('couponsList');
+  if(!list.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">🎟</div><div class="empty-title">No coupons found</div><div style="font-size:.83rem">Add your first coupon with the + button</div></div>`;
+  } else {
+    el.innerHTML=list.map(c=>{
+      const st=getStatus(c);
+      const cc=c.used?'used':st==='warning'?'expiring-soon':st==='expired'?'expired':'';
+      const badgeCls=c.used?'used-tag':st;
+      return `<div class="card-wrap" id="wrap-${c.id}">
+        <div class="swipe-right-action">📋</div>
+        <div class="swipe-left-action">🗑</div>
+        <div class="coupon-card ${cc}" id="card-${c.id}" data-id="${c.id}">
+          <div class="coupon-header">
+            <span class="coupon-category ${catColors[c.category]||'cat-other'}">${catEmojis[c.category]||'📦'} ${c.category}</span>
+            <div class="coupon-actions">
+              <button class="action-btn qr" onclick="showCouponQR('${c.id}')">QR</button>
+              ${!c.used
+                ?`<button class="action-btn use" onclick="markUsed('${c.id}')">✓ Used</button>`
+                :`<button class="action-btn" onclick="unmarkUsed('${c.id}')">↩ Undo</button>`}
+              <button class="action-btn delete" onclick="deleteCoupon('${c.id}')">✕</button>
+            </div>
+          </div>
+          <div class="coupon-body">
+            <div class="coupon-name">${escapeHtml(c.name)}${c.used?'<span class="used-badge">✓ used</span>':''}</div>
+            ${c.code?`<div class="coupon-code-wrap"><div class="coupon-code">${escapeHtml(c.code)}</div><button class="copy-btn" onclick="copyCode('${escapeHtml(c.code)}',this)">Copy</button></div>`:''}
+            ${c.notes?`<div style="font-size:.75rem;color:var(--text2);margin-bottom:8px">${escapeHtml(c.notes)}</div>`:''}
+            <div class="coupon-footer">
+              <span class="expiry-badge ${badgeCls}">${getLabel(c)}</span>
+              ${c.link?`<a href="${encodeURI(c.link)}" target="_blank" rel="noopener" class="coupon-link">🔗 Open ↗</a>`:''}
+            </div>
+            ${c.used&&c.usedAt?`<div class="used-on">Used on ${new Date(c.usedAt).toLocaleDateString()}</div>`:''}
+          </div>
+        </div>
+      </div>`;
+    }).join('');
+    list.forEach(c=>attachSwipe(c.id));
+  }
+
+  document.getElementById('statTotal').textContent=coupons.length;
+  document.getElementById('statActive').textContent=coupons.filter(c=>!c.used&&getStatus(c)!=='expired').length;
+  document.getElementById('statExpiring').textContent=coupons.filter(c=>!c.used&&getStatus(c)==='warning').length;
+  document.getElementById('statUsed').textContent=coupons.filter(c=>c.used).length;
+}
+
+// ═══════════════════════════════════
+// SWIPE GESTURES
+// ═══════════════════════════════════
+function attachSwipe(id){
+  const card=document.getElementById('card-'+id);
+  if(!card)return;
+  let sx=0,sy=0,dx=0,swiping=false;
+  const T=80;
+  card.addEventListener('touchstart',e=>{sx=e.touches[0].clientX;sy=e.touches[0].clientY;dx=0;swiping=false;},{passive:true});
+  card.addEventListener('touchmove',e=>{
+    dx=e.touches[0].clientX-sx;
+    const dy=Math.abs(e.touches[0].clientY-sy);
+    if(Math.abs(dx)>dy&&Math.abs(dx)>10){swiping=true;card.classList.add('swiping');card.style.transform=`translateX(${dx}px)`;card.style.transition='none';}
+  },{passive:true});
+  card.addEventListener('touchend',()=>{
+    card.style.transition='';
+    if(swiping){
+      if(dx<-T){card.style.transform='translateX(-120%)';setTimeout(()=>deleteCoupon(id),300);}
+      else if(dx>T){const c=coupons.find(x=>x.id===id);if(c&&c.code)copyCode(c.code,null);else if(c)markUsed(id);card.style.transform='';}
+      else card.style.transform='';
+    }
+    card.classList.remove('swiping');
+  });
+}
+
+// ═══════════════════════════════════
+// STAT FILTER
+// ═══════════════════════════════════
+function setStatFilter(val,el){
+  document.querySelectorAll('.stat-card').forEach(c=>c.classList.remove('active-stat'));
+  el.classList.add('active-stat');
+  document.getElementById('filterSelect').value=val;
+  renderCoupons();
+}
+function filterCategory(cat,el){
+  activeCategory=cat;
+  document.querySelectorAll('.cat-pill').forEach(p=>p.classList.remove('active'));
+  el.classList.add('active'); renderCoupons();
+}
+
+// ═══════════════════════════════════
+// USAGE HISTORY
+// ═══════════════════════════════════
+function markUsed(id){
+  const c=coupons.find(x=>x.id===id);if(!c||c.used)return;
+  c.used=true; c.usedAt=new Date().toISOString();
+  usageHistory.unshift({id:c.id,name:c.name,code:c.code,category:c.category,usedAt:c.usedAt,expiry:c.expiry});
+  localStorage.setItem(HISTORY_KEY,JSON.stringify(usageHistory));
+  save(); renderCoupons();
+  showToast(`✓ "${c.name}" marked as used`);
+}
+function unmarkUsed(id){
+  const c=coupons.find(x=>x.id===id);if(!c)return;
+  const prevUsedAt=c.usedAt;
+  c.used=false; c.usedAt=null;
+  usageHistory=usageHistory.filter(h=>!(h.id===id&&h.usedAt===prevUsedAt));
+  localStorage.setItem(HISTORY_KEY,JSON.stringify(usageHistory));
+  save(); renderCoupons();
+  showToast('↩ Marked as unused');
+}
+function openHistoryModal(){
+  const el=document.getElementById('historyList');
+  if(!usageHistory.length){
+    el.innerHTML=`<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No usage history yet</div></div>`;
+  } else {
+    el.innerHTML=usageHistory.map(h=>`
+      <div class="history-item">
+        <div class="history-icon">${catEmojis[h.category]||'📦'}</div>
+        <div>
+          <div class="history-name">${escapeHtml(h.name)}</div>
+          <div class="history-meta">${h.code?`Code: ${escapeHtml(h.code)} · `:''}Used: ${new Date(h.usedAt).toLocaleDateString()}</div>
+        </div>
+      </div>`).join('');
+  }
+  document.getElementById('historyModalOverlay').classList.add('open');
+}
+
+// ═══════════════════════════════════
+// CRUD
+// ═══════════════════════════════════
+function addCoupon(){
+  const name=document.getElementById('inputName').value.trim();
+  const expiry=document.getElementById('inputExpiry').value;
+  if(!name||!expiry){showToast('⚠ Name and date required');return;}
+  const c={
+    id:Date.now().toString()+Math.random().toString(36).slice(2),
+    name,code:document.getElementById('inputCode').value.trim(),
+    link:document.getElementById('inputLink').value.trim(),
+    category:document.getElementById('inputCategory').value,
+    expiry,notes:document.getElementById('inputNotes').value.trim(),
+    createdAt:new Date().toISOString(),used:false,usedAt:null
+  };
+  coupons.unshift(c); save(); closeModal(); renderCoupons();
+  showToast('✓ Coupon saved!');
+  scheduleAllNotifs(c);
+}
+function deleteCoupon(id){coupons=coupons.filter(c=>c.id!==id);save();renderCoupons();showToast('✕ Deleted');}
+function copyCode(code,btn){
+  if(!code)return;
+  navigator.clipboard.writeText(code).then(()=>{
+    if(btn){btn.textContent='✓ Copied!';btn.classList.add('copied');setTimeout(()=>{btn.textContent='Copy';btn.classList.remove('copied');},2000);}
+    else showToast('📋 Code copied!');
+  });
+}
+
+// ═══════════════════════════════════
+// NOTIFICATIONS
+// ═══════════════════════════════════
+function requestNotifications(){
+  if('Notification'in window){
+    Notification.requestPermission().then(p=>{
+      if(p==='granted'){
+        document.getElementById('notifBanner').style.display='none';
+        showToast('🔔 Notifications enabled!');
+        coupons.forEach(scheduleAllNotifs);
+        openNotifSettings();
+      }
+    });
+  }
+}
+function scheduleAllNotifs(c){
+  if(Notification.permission!=='granted'||c.used)return;
+  [7,3,1].forEach(d=>{
+    if(!notifSettings[d.toString()])return;
+    const left=getDaysLeft(c.expiry);
+    if(left!==d)return;
+    const k=`notif-${c.id}-${d}`,today=new Date().toDateString();
+    if(localStorage.getItem(k)!==today){
+      setTimeout(()=>{
+        new Notification(`⏰ Coupon expires in ${d} day${d===1?'':'s'}!`,{body:`"${c.name}" — don't miss it!`});
+        localStorage.setItem(k,today);
+      },2000);
+    }
+  });
+}
+function sendDailyDigest(){
+  if(Notification.permission!=='granted'||!notifSettings.digest)return;
+  const key='digest-'+new Date().toDateString();
+  if(localStorage.getItem(key))return;
+  const expiring=coupons.filter(c=>!c.used&&getDaysLeft(c.expiry)<=7&&getDaysLeft(c.expiry)>=0);
+  if(!expiring.length)return;
+  new Notification('📋 CouponVault Daily Digest',{body:`${expiring.length} coupon${expiring.length>1?'s':''} expiring within 7 days!`});
+  localStorage.setItem(key,'sent');
+}
+function toggleNotif(key){
+  notifSettings[key]=!notifSettings[key];
+  const elId='toggle'+key.charAt(0).toUpperCase()+key.slice(1);
+  document.getElementById(elId).className='toggle'+(notifSettings[key]?' on':'');
+  localStorage.setItem(NOTIF_KEY,JSON.stringify(notifSettings));
+}
+function loadNotifToggles(){
+  Object.keys(notifSettings).forEach(k=>{
+    const el=document.getElementById('toggle'+k.charAt(0).toUpperCase()+k.slice(1));
+    if(el)el.className='toggle'+(notifSettings[k]?' on':'');
+  });
+}
+
+// ═══════════════════════════════════
+// GOOGLE DRIVE
+// ═══════════════════════════════════
+function toggleGoogleAuth(){
+  if(gAccessToken){gAccessToken=null;localStorage.removeItem('g_token');updateDriveUI(false);showToast('Signed out of Google Drive');}
+  else signInToGoogle();
+}
+function signInToGoogle(){
+  if(typeof google==='undefined'){
+    exportJSON();
+    setTimeout(()=>window.open('https://drive.google.com','_blank'),500);
+    return;
+  }
+  const client=google.accounts.oauth2.initTokenClient({
+    client_id:GOOGLE_CLIENT_ID,scope:DRIVE_SCOPE,
+    callback:(r)=>{
+      if(r.error){showToast('⚠ Google sign-in failed','error');return;}
+      gAccessToken=r.access_token;localStorage.setItem('g_token',gAccessToken);
+      updateDriveUI(true);showToast('✓ Connected to Google Drive!');
+    }
+  });
+  client.requestAccessToken();
+}
+function updateDriveUI(on){
+  document.getElementById('gdriveDot').className='gdrive-dot '+(on?'on':'off');
+  document.getElementById('gdriveLabel').textContent=on?'Connected to Google Drive ✓':'Not connected to Google Drive';
+  document.getElementById('gdriveBtn').textContent=on?'Sign out':'Sign in';
+  document.getElementById('driveDesc').textContent=on?'Save directly to your Google Drive':'Sign in to save directly';
+}
+async function saveToGoogleDrive(){
+  if(!gAccessToken){signInToGoogle();return;}
+  showToast('☁️ Saving to Google Drive...');
+  const blob=new Blob([JSON.stringify({schemaVersion:SCHEMA_VERSION,exportedAt:new Date().toISOString(),coupons,history:usageHistory},null,2)],{type:'application/json'});
+  try{
+    if(gDriveFileId){await updateDriveFile(gDriveFileId,blob);showToast('☁️ Google Drive updated!');}
+    else{const id=await createDriveFile(`couponvault-${new Date().toISOString().split('T')[0]}.json`,blob);gDriveFileId=id;localStorage.setItem('drive_file_id',id);showToast('☁️ Saved to Google Drive!');}
+    closeBackupModal();
+  }catch(e){
+    if(e.status===401){gAccessToken=null;localStorage.removeItem('g_token');updateDriveUI(false);showToast('⚠ Session expired, sign in again','error');}
+    else{showToast('⚠ Drive save failed','error');exportJSON();}
+  }
+}
+async function createDriveFile(name,blob){
+  const form=new FormData();
+  form.append('metadata',new Blob([JSON.stringify({name,mimeType:'application/json',parents:['root']})],{type:'application/json'}));
+  form.append('file',blob);
+  const res=await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart',{method:'POST',headers:{Authorization:`Bearer ${gAccessToken}`},body:form});
+  if(!res.ok){const e=await res.json();throw Object.assign(new Error(e.error?.message),{status:res.status});}
+  return(await res.json()).id;
+}
+async function updateDriveFile(id,blob){
+  const res=await fetch(`https://www.googleapis.com/upload/drive/v3/files/${id}?uploadType=media`,{method:'PATCH',headers:{Authorization:`Bearer ${gAccessToken}`,'Content-Type':'application/json'},body:blob});
+  if(!res.ok){const e=await res.json();throw Object.assign(new Error(e.error?.message),{status:res.status});}
+}
+
+// ═══════════════════════════════════
+// EXPORT / IMPORT
+// ═══════════════════════════════════
+function exportJSON(){
+  const payload={schemaVersion:SCHEMA_VERSION,exportedAt:new Date().toISOString(),coupons,history:usageHistory};
+  const b=new Blob([JSON.stringify(payload,null,2)],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);
+  a.download=`couponvault-${new Date().toISOString().split('T')[0]}.json`;a.click();URL.revokeObjectURL(a.href);
+  showToast('📥 JSON downloaded!');closeBackupModal();
+}
+function exportQR(){
+  closeBackupModal();
+  setTimeout(()=>{
+    const qrDiv=document.getElementById('qrcode');qrDiv.innerHTML='';
+    const encoded=btoa(unescape(encodeURIComponent(JSON.stringify(coupons))));
+    const url=window.location.href.split('?')[0]+'?import='+encoded;
+    if(url.length>2953){qrDiv.innerHTML=`<div style="color:var(--danger);padding:20px;text-align:center">⚠ Too many coupons.<br>Use JSON export instead.</div>`;}
+    else{try{new QRCode(qrDiv,{text:url,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}catch{qrDiv.innerHTML=`<div style="color:var(--danger);padding:20px">QR failed.</div>`;}}
+    document.getElementById('qrModalOverlay').classList.add('open');
+  },300);
+}
+function showCouponQR(id){
+  const c=coupons.find(x=>x.id===id);if(!c)return;
+  setTimeout(()=>{
+    const qrDiv=document.getElementById('qrcode');qrDiv.innerHTML='';
+    const text=c.link||(c.code?`${c.name}\nCode: ${c.code}\nExpires: ${c.expiry}`:c.name);
+    try{new QRCode(qrDiv,{text,width:220,height:220,colorDark:'#000',colorLight:'#fff',correctLevel:QRCode.CorrectLevel.M});}
+    catch{qrDiv.innerHTML=`<div style="color:var(--danger);padding:20px">QR failed.</div>`;}
+    document.getElementById('qrModalOverlay').classList.add('open');
+  },100);
+}
+function importJSON(e){
+  const file=e.target.files[0];if(!file)return;
+  const r=new FileReader();
+  r.onload=ev=>{try{const p=JSON.parse(ev.target.result);mergeImport(Array.isArray(p)?p:p.coupons||[],p.history);}catch{showToast('⚠ Invalid file','error');}};
+  r.readAsText(file);e.target.value='';
+}
+function importFromPaste(){
+  const t=document.getElementById('pasteJSON').value.trim();if(!t){showToast('⚠ No data');return;}
+  try{const p=JSON.parse(t);mergeImport(Array.isArray(p)?p:p.coupons||[]);document.getElementById('pasteJSON').value='';}
+  catch{showToast('⚠ Invalid JSON','error');}
+}
+function mergeImport(data,history){
+  if(!Array.isArray(data)){showToast('⚠ Invalid format','error');return;}
+  const ids=new Set(coupons.map(c=>c.id));
+  const migrated=migrateCoupons(data,1);
+  const added=migrated.filter(c=>c.name&&c.expiry&&!ids.has(c.id));
+  coupons=[...coupons,...added];
+  if(history&&Array.isArray(history)){
+    const hIds=new Set(usageHistory.map(h=>h.usedAt+h.id));
+    usageHistory=[...usageHistory,...history.filter(h=>!hIds.has(h.usedAt+h.id))];
+    localStorage.setItem(HISTORY_KEY,JSON.stringify(usageHistory));
+  }
+  save();renderCoupons();closeBackupModal();
+  showToast(`✓ Imported ${added.length} coupon(s)!`);
+}
+function checkURLImport(){
+  const p=new URLSearchParams(window.location.search).get('import');
+  if(p){try{mergeImport(JSON.parse(decodeURIComponent(escape(atob(p)))));window.history.replaceState({},'',window.location.pathname);}catch{showToast('⚠ QR import failed','error');}}
+}
+
+// ═══════════════════════════════════
+// MODALS
+// ═══════════════════════════════════
+function openModal(){
+  const today=new Date().toISOString().split('T')[0];
+  document.getElementById('inputExpiry').min=today;
+  document.getElementById('inputExpiry').value='';
+  ['inputName','inputCode','inputLink','inputNotes'].forEach(id=>document.getElementById(id).value='');
+  document.getElementById('modalOverlay').classList.add('open');
+}
+function closeModal(){document.getElementById('modalOverlay').classList.remove('open');}
+function openBackupModal(){document.getElementById('backupModalOverlay').classList.add('open');}
+function closeBackupModal(){document.getElementById('backupModalOverlay').classList.remove('open');}
+function closeQRModal(){document.getElementById('qrModalOverlay').classList.remove('open');}
+function openNotifSettings(){document.getElementById('notifModalOverlay').classList.add('open');}
+function closeNotifSettings(){document.getElementById('notifModalOverlay').classList.remove('open');}
+function handleOverlayClick(e,id){if(e.target===document.getElementById(id))document.getElementById(id).classList.remove('open');}
+
+// ═══════════════════════════════════
+// TOAST
+// ═══════════════════════════════════
+function showToast(msg,type='success'){
+  const t=document.getElementById('toast');
+  t.textContent=msg;t.className=`toast ${type} show`;
+  clearTimeout(t._timer);t._timer=setTimeout(()=>t.classList.remove('show'),3500);
+}
+
+// ═══════════════════════════════════
+// INIT
+// ═══════════════════════════════════
+function init(){
+  applyTheme(currentTheme);
+  if('Notification'in window&&Notification.permission==='default') document.getElementById('notifBanner').style.display='flex';
+  document.getElementById('inputExpiry').min=new Date().toISOString().split('T')[0];
+  if(gAccessToken) updateDriveUI(true);
+  checkURLImport();
+  updateHealthBar();
+  loadNotifToggles();
+
+  if(!coupons.length){
+    const d1=new Date();d1.setDate(d1.getDate()+5);
+    const d2=new Date();d2.setDate(d2.getDate()+30);
+    const d3=new Date();d3.setDate(d3.getDate()-2);
+    coupons=[
+      {id:'s1',name:'Amazon 20% Off',code:'SAVE20',link:'https://amazon.com',category:'Shopping',expiry:d1.toISOString().split('T')[0],notes:'Electronics only',createdAt:new Date().toISOString(),used:false,usedAt:null},
+      {id:'s2',name:'Netflix Free Month',code:'NETFLIX1M',link:'https://netflix.com',category:'Entertainment',expiry:d2.toISOString().split('T')[0],notes:'',createdAt:new Date().toISOString(),used:false,usedAt:null},
+      {id:'s3',name:'Pizza Hut 30% Off',code:'PIZZA30',link:'',category:'Food',expiry:d3.toISOString().split('T')[0],notes:'Delivery only',createdAt:new Date().toISOString(),used:true,usedAt:new Date(Date.now()-86400000).toISOString()}
+    ];
+    save();
+  }
+
+  renderCoupons();
+  coupons.forEach(scheduleAllNotifs);
+  sendDailyDigest();
+}
+
+init();
+</script>
+</body>
+</html>
