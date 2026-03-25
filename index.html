@@ -199,6 +199,8 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
     <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
     <button class="icon-btn" onclick="openNotifSettings()" title="Notifications">🔔</button>
     <button class="icon-btn" onclick="openHistoryModal()" title="Usage history">📋</button>
+    <button class="icon-btn" id="trashBtn" onclick="openTrashModal()" title="Trash bin">🗑</button>
+    <button class="icon-btn" onclick="openBackupModal()" title="Backup">⟳</button>
     <button class="icon-btn" onclick="openBackupModal()" title="Backup">⟳</button>
     <button class="add-btn" onclick="openModal()">+ Add</button>
   </div>
@@ -379,6 +381,19 @@ body::before{content:'';position:fixed;inset:0;background-image:linear-gradient(
   </div>
 </div>
 
+<!-- TRASH MODAL -->
+<div class="modal-overlay" id="trashModalOverlay" onclick="handleOverlayClick(event,'trashModalOverlay')">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px">
+      <div class="modal-title" style="margin-bottom:0">🗑 Trash Bin</div>
+      <button class="health-btn" style="color:var(--danger);border-color:var(--danger)" onclick="emptyTrash()">Empty trash</button>
+    </div>
+    <div style="font-size:0.75rem;color:var(--text2);margin-bottom:16px;padding:8px 12px;background:var(--surface2);border-radius:var(--radius-sm)">Deleted items are kept forever. Tap restore to recover any coupon.</div>
+    <div id="trashList"></div>
+  </div>
+</div>
+
 <!-- QR MODAL -->
 <div class="modal-overlay" id="qrModalOverlay" onclick="handleOverlayClick(event,'qrModalOverlay')">
   <div class="modal" style="text-align:center">
@@ -409,6 +424,7 @@ const BACKUP_KEY = 'coupons_backup';
 const VERSION_KEY = 'schema_version';
 const HISTORY_KEY = 'coupon_history';
 const NOTIF_KEY = 'notif_settings';
+const TRASH_KEY = 'coupon_trash';
 const STORAGE_WARN = 4 * 1024 * 1024;
 const VALID_CATS = ['Food','Shopping','Travel','Entertainment','Other'];
 const catColors = {Food:'cat-food',Shopping:'cat-shopping',Travel:'cat-travel',Entertainment:'cat-entertainment',Other:'cat-other'};
@@ -566,6 +582,8 @@ function updateHealthBar() {
 // ═══════════════════════════════════
 let coupons = loadCoupons();
 let usageHistory = JSON.parse(localStorage.getItem(HISTORY_KEY)||'[]');
+let trash = JSON.parse(localStorage.getItem(TRASH_KEY)||'[]');
+});
 let activeCategory = 'all';
 
 // ═══════════════════════════════════
@@ -622,12 +640,13 @@ function renderCoupons() {
       const badgeCls=c.used?'used-tag':st;
       return `<div class="card-wrap" id="wrap-${c.id}">
         <div class="swipe-right-action">📋</div>
-        <div class="swipe-left-action">🗑</div>
+        <div class="swipe-left-action" style="background:var(--border);font-size:0.7rem;color:var(--text2)">use ✕</div>
         <div class="coupon-card ${cc}" id="card-${c.id}" data-id="${c.id}">
           <div class="coupon-header">
             <span class="coupon-category ${catColors[c.category]||'cat-other'}">${catEmojis[c.category]||'📦'} ${c.category}</span>
             <div class="coupon-actions">
               <button class="action-btn qr" onclick="showCouponQR('${c.id}')">QR</button>
+              <button class="action-btn" style="color:var(--accent2)" onclick="cloneCoupon('${c.id}')">⧉ Clone</button>
               ${!c.used
                 ?`<button class="action-btn use" onclick="markUsed('${c.id}')">✓ Used</button>`
                 :`<button class="action-btn" onclick="unmarkUsed('${c.id}')">↩ Undo</button>`}
@@ -673,7 +692,7 @@ function attachSwipe(id){
   card.addEventListener('touchend',()=>{
     card.style.transition='';
     if(swiping){
-      if(dx<-T){card.style.transform='translateX(-120%)';setTimeout(()=>deleteCoupon(id),300);}
+      if(dx<-T){card.style.transform='';// Swipe left disabled - use delete button instead}
       else if(dx>T){const c=coupons.find(x=>x.id===id);if(c&&c.code)copyCode(c.code,null);else if(c)markUsed(id);card.style.transform='';}
       else card.style.transform='';
     }
@@ -752,7 +771,48 @@ function addCoupon(){
   showToast('✓ Coupon saved!');
   scheduleAllNotifs(c);
 }
-function deleteCoupon(id){coupons=coupons.filter(c=>c.id!==id);save();renderCoupons();showToast('✕ Deleted');}
+function deleteCoupon(id){
+  const c=coupons.find(x=>x.id===id);if(!c)return;
+  // Move to trash instead of permanent delete
+  const trashed={...c,deletedAt:new Date().toISOString()};
+  trash.unshift(trashed);
+  localStorage.setItem(TRASH_KEY,JSON.stringify(trash));
+  coupons=coupons.filter(x=>x.id!==id);
+  save();renderCoupons();
+  showToast('🗑 Moved to trash — tap 🗑 to restore');
+}
+
+function cloneCoupon(id){
+  const c=coupons.find(x=>x.id===id);if(!c)return;
+  const clone={...c,id:Date.now().toString()+Math.random().toString(36).slice(2),name:c.name+' (copy)',createdAt:new Date().toISOString(),used:false,usedAt:null};
+  coupons.unshift(clone);
+  save();renderCoupons();
+  showToast('📋 Coupon cloned!');
+}
+
+function restoreFromTrash(id){
+  const c=trash.find(x=>x.id===id);if(!c)return;
+  const{deletedAt,...restored}=c;
+  coupons.unshift(restored);
+  trash=trash.filter(x=>x.id!==id);
+  localStorage.setItem(TRASH_KEY,JSON.stringify(trash));
+  save();renderCoupons();renderTrash();
+  showToast('✓ Coupon restored!');
+}
+
+function permanentDelete(id){
+  trash=trash.filter(x=>x.id!==id);
+  localStorage.setItem(TRASH_KEY,JSON.stringify(trash));
+  renderTrash();
+  showToast('✕ Permanently deleted');
+}
+
+function emptyTrash(){
+  trash=[];
+  localStorage.setItem(TRASH_KEY,JSON.stringify(trash));
+  renderTrash();
+  showToast('🗑 Trash emptied');
+}
 function copyCode(code,btn){
   if(!code)return;
   navigator.clipboard.writeText(code).then(()=>{
@@ -948,6 +1008,29 @@ function closeNotifSettings(){document.getElementById('notifModalOverlay').class
 function handleOverlayClick(e,id){if(e.target===document.getElementById(id))document.getElementById(id).classList.remove('open');}
 
 // ═══════════════════════════════════
+function openTrashModal(){renderTrash();document.getElementById('trashModalOverlay').classList.add('open');updateTrashBadge();}
+function closeTrashModal(){document.getElementById('trashModalOverlay').classList.remove('open');}
+function updateTrashBadge(){const btn=document.getElementById('trashBtn');if(!btn)return;btn.textContent=trash.length>0?'🗑 '+trash.length:'🗑';btn.style.color=trash.length>0?'var(--danger)':'var(--text2)';}
+function renderTrash(){
+  const el=document.getElementById('trashList');
+  if(!trash.length){el.innerHTML='<div class="empty-state"><div class="empty-icon">🗑</div><div class="empty-title">Trash is empty</div><div style="font-size:.83rem">Deleted coupons appear here</div></div>';return;}
+  el.innerHTML=trash.map(c=>`
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+        <div style="font-family:Syne,sans-serif;font-weight:700;font-size:0.95rem">${escapeHtml(c.name)}</div>
+        <div style="display:flex;gap:6px">
+          <button class="action-btn use" onclick="restoreFromTrash('${c.id}')">↩ Restore</button>
+          <button class="action-btn delete" onclick="permanentDelete('${c.id}')">✕ Delete</button>
+        </div>
+      </div>
+      <div style="font-size:0.75rem;color:var(--text2)">
+        ${c.code?'Code: '+escapeHtml(c.code)+' &nbsp;·&nbsp; ':''}
+        Category: ${c.category} &nbsp;·&nbsp;
+        Deleted: ${new Date(c.deletedAt).toLocaleDateString()}
+      </div>
+      ${c.expiry?`<div style="font-size:0.72rem;color:var(--text2);margin-top:3px">Expiry: ${c.expiry}</div>`:''}
+    </div>`).join('');
+}
 // TOAST
 // ═══════════════════════════════════
 function showToast(msg,type='success'){
@@ -967,6 +1050,7 @@ function init(){
   checkURLImport();
   updateHealthBar();
   loadNotifToggles();
+  updateTrashBadge();
 
   if(!coupons.length){
     const d1=new Date();d1.setDate(d1.getDate()+5);
