@@ -33,7 +33,8 @@ body::before { content:''; position:fixed; inset:0; background-image:linear-grad
 .logo { font-family:'Syne',sans-serif; font-weight:800; font-size:1.1rem; display:flex; align-items:center; gap:6px; flex-shrink:0; }
 .logo-icon { width:32px; height:32px; background:var(--accent); border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:1rem; }
 .logo span { color:var(--accent); }
-.header-actions { display:flex; gap:6px; align-items:center; }
+.header-actions { display:flex; gap:6px; align-items:center; flex-shrink:0; }
+.menu-btn { background:var(--surface); color:var(--text2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 10px; font-size:1rem; cursor:pointer; transition:all 0.2s; line-height:1; }.menu-btn:hover { border-color:var(--accent2); color:var(--accent2); }.dropdown { position:relative; }.dropdown-menu { position:absolute; top:calc(100% + 8px); right:0; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:6px; z-index:500; min-width:190px; box-shadow:0 8px 30px rgba(0,0,0,0.3); display:none; flex-direction:column; gap:2px; }.dropdown-menu.open { display:flex; }.dropdown-item { display:flex; align-items:center; gap:10px; padding:10px 12px; border-radius:var(--radius-sm); cursor:pointer; font-size:0.82rem; color:var(--text); transition:background 0.2s; border:none; background:none; font-family:"DM Mono",monospace; width:100%; text-align:left; }.dropdown-item:hover { background:var(--surface2); }.dropdown-item .di-icon { font-size:1rem; width:20px; text-align:center; }
 .add-btn { background:var(--accent); color:var(--bg); border:none; border-radius:var(--radius-sm); padding:6px 10px; font-family:'Syne',sans-serif; font-weight:700; font-size:0.78rem; cursor:pointer; transition:all 0.2s; }
 .add-btn:hover { background:#d4ff44; transform:translateY(-1px); }
 .icon-btn { background:var(--surface); color:var(--text2); border:1px solid var(--border); border-radius:var(--radius-sm); padding:5px 8px; font-size:0.75rem; cursor:pointer; transition:all 0.2s; }
@@ -225,12 +226,17 @@ body::before { content:''; position:fixed; inset:0; background-image:linear-grad
 <header class="header">
   <div class="logo"><div class="logo-icon">🎟</div>Coupon<span>Vault</span></div>
   <div class="header-actions">
-    <button class="icon-btn" id="themeBtn" onclick="toggleTheme()" title="Toggle theme">🌙</button>
-    <button class="icon-btn" onclick="openNotifSettings()" title="Notifications">🔔</button>
-    <button class="icon-btn" onclick="openHistoryModal()" title="Usage history">📋</button>
-    <button class="icon-btn" id="trashBtn" onclick="openTrashModal()" title="Trash bin">🗑</button>
-    <button class="icon-btn" onclick="openBackupModal()" title="Backup">⟳</button>
     <button class="add-btn" onclick="openModal()">+ Add</button>
+    <div class="dropdown">
+      <button class="menu-btn" onclick="toggleMenu()" id="menuBtn">&#8942;</button>
+      <div class="dropdown-menu" id="dropdownMenu">
+        <button class="dropdown-item" onclick="toggleTheme();closeMenu()"><span class="di-icon" id="themeIcon">🌙</span> Toggle theme</button>
+        <button class="dropdown-item" onclick="openNotifSettings();closeMenu()"><span class="di-icon">🔔</span> Notifications</button>
+        <button class="dropdown-item" onclick="openHistoryModal();closeMenu()"><span class="di-icon">📋</span> Usage history</button>
+        <button class="dropdown-item" id="trashItem" onclick="openTrashModal();closeMenu()"><span class="di-icon">🗑</span> Trash bin</button>
+        <button class="dropdown-item" onclick="openBackupModal();closeMenu()"><span class="di-icon">⟳</span> Backup & Sync</button>
+      </div>
+    </div>
   </div>
 </header>
 
@@ -626,7 +632,7 @@ function escapeHtml(s) {
 var currentTheme = localStorage.getItem('theme') || 'dark';
 function applyTheme(t) {
   document.body.setAttribute('data-theme', t);
-  document.getElementById('themeBtn').textContent = t === 'dark' ? '🌙' : '☀️';
+  var ti=document.getElementById('themeIcon'); if(ti) ti.textContent = t === 'dark' ? '🌙' : '☀️';
   currentTheme = t;
   localStorage.setItem('theme', t);
 }
@@ -889,7 +895,7 @@ function openHistoryModal() {
 // TRASH BIN
 // ═══════════════════════════════════════════════
 function updateTrashBadge() {
-  var btn = document.getElementById('trashBtn');
+  var btn = document.getElementById('trashItem');
   if (!btn) return;
   btn.textContent = trash.length > 0 ? '🗑 ' + trash.length : '🗑';
   btn.style.color = trash.length > 0 ? 'var(--danger)' : 'var(--text2)';
@@ -1201,6 +1207,18 @@ function handleOverlayClick(e, id) { if (e.target === document.getElementById(id
 // ═══════════════════════════════════════════════
 // TOAST
 // ═══════════════════════════════════════════════
+function toggleMenu() {
+  var m = document.getElementById('dropdownMenu');
+  m.classList.toggle('open');
+}
+function closeMenu() {
+  document.getElementById('dropdownMenu').classList.remove('open');
+}
+// Close menu when clicking outside
+document.addEventListener('click', function(e) {
+  var dropdown = document.querySelector('.dropdown');
+  if (dropdown && !dropdown.contains(e.target)) closeMenu();
+});
 function showToast(msg, type) {
   var t = document.getElementById('toast');
   t.textContent = msg;
