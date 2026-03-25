@@ -299,7 +299,7 @@ body::before { content:''; position:fixed; inset:0; background-image:linear-grad
 <div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event,'modalOverlay')">
   <div class="modal">
     <div class="modal-handle"></div>
-    <div class="modal-title">✦ Add New Coupon</div>
+    <div class="modal-title" id="modalTitle">✦ Add New Coupon</div>
     <div class="form-group"><label class="form-label">Name *</label><input type="text" class="form-input" id="inputName" placeholder="e.g. Amazon 20% Off"></div>
     <div class="form-group"><label class="form-label">Coupon Code</label><input type="text" class="form-input" id="inputCode" placeholder="e.g. SAVE20"></div>
     <div class="form-group"><label class="form-label">Link / URL</label><input type="url" class="form-input" id="inputLink" placeholder="https://..."></div>
@@ -316,7 +316,7 @@ body::before { content:''; position:fixed; inset:0; background-image:linear-grad
       <div class="form-group"><label class="form-label">Expiry Date *</label><input type="date" class="form-input" id="inputExpiry"></div>
     </div>
     <div class="form-group"><label class="form-label">Notes</label><input type="text" class="form-input" id="inputNotes" placeholder="Optional..."></div>
-    <button class="submit-btn" onclick="addCoupon()">SAVE COUPON</button>
+    <button class="submit-btn" id="submitBtn" onclick="saveCoupon()">SAVE COUPON</button>
   </div>
 </div>
 
@@ -630,6 +630,7 @@ function escapeHtml(s) {
 // THEME
 // ═══════════════════════════════════════════════
 var currentTheme = localStorage.getItem('theme') || 'dark';
+var editingId = null;
 function applyTheme(t) {
   document.body.setAttribute('data-theme', t);
   var ti=document.getElementById('themeIcon'); if(ti) ti.textContent = t === 'dark' ? '🌙' : '☀️';
@@ -707,7 +708,8 @@ function renderCoupons() {
             '<span class="coupon-category ' + cat + '">' + emo + ' ' + c.category + '</span>' +
             '<div class="coupon-actions">' +
               '<button class="action-btn qr"    onclick="showCouponQR(\'' + c.id + '\')">QR</button>' +
-              '<button class="action-btn clone" onclick="cloneCoupon(\'' + c.id + '\')">⧉ Clone</button>' +
+              '<button class="action-btn clone" onclick="cloneCoupon('' + c.id + '')">⧉ Clone</button>' +
+              '<button class="action-btn" style="color:var(--accent)" onclick="editCoupon('' + c.id + '')">✎ Edit</button>' +
               usedBtn +
               '<button class="action-btn delete" onclick="deleteCoupon(\'' + c.id + '\')">✕</button>' +
             '</div>' +
@@ -790,26 +792,57 @@ function filterCategory(cat, el) {
 // ═══════════════════════════════════════════════
 // CRUD
 // ═══════════════════════════════════════════════
-function addCoupon() {
+function saveCoupon() {
   var name   = document.getElementById('inputName').value.trim();
   var expiry = document.getElementById('inputExpiry').value;
   if (!name || !expiry) { showToast('⚠ Name and date required'); return; }
-  var c = {
-    id:       Date.now().toString() + Math.random().toString(36).slice(2),
-    name:     name,
-    code:     document.getElementById('inputCode').value.trim(),
-    link:     document.getElementById('inputLink').value.trim(),
-    category: document.getElementById('inputCategory').value,
-    expiry:   expiry,
-    notes:    document.getElementById('inputNotes').value.trim(),
-    createdAt:new Date().toISOString(),
-    used:     false,
-    usedAt:   null
-  };
-  coupons.unshift(c);
-  save(); closeModal(); renderCoupons();
-  showToast('✓ Coupon saved!');
-  scheduleAllNotifs(c);
+  var code     = document.getElementById('inputCode').value.trim();
+  var link     = document.getElementById('inputLink').value.trim();
+  var category = document.getElementById('inputCategory').value;
+  var notes    = document.getElementById('inputNotes').value.trim();
+  if (editingId) {
+    // UPDATE existing coupon
+    var idx = coupons.findIndex(function(x){return x.id === editingId;});
+    if (idx !== -1) {
+      coupons[idx].name     = name;
+      coupons[idx].code     = code;
+      coupons[idx].link     = link;
+      coupons[idx].category = category;
+      coupons[idx].expiry   = expiry;
+      coupons[idx].notes    = notes;
+    }
+    save(); closeModal(); renderCoupons();
+    showToast('✓ Coupon updated!');
+  } else {
+    // CREATE new coupon
+    var c = {
+      id:       Date.now().toString() + Math.random().toString(36).slice(2),
+      name:     name, code: code, link: link, category: category,
+      expiry:   expiry, notes: notes,
+      createdAt:new Date().toISOString(), used: false, usedAt: null
+    };
+    coupons.unshift(c);
+    save(); closeModal(); renderCoupons();
+    showToast('✓ Coupon saved!');
+    scheduleAllNotifs(c);
+  }
+}
+
+function editCoupon(id) {
+  var c = coupons.find(function(x){return x.id === id;});
+  if (!c) return;
+  editingId = id;
+  // Populate form with existing values
+  document.getElementById('inputName').value     = c.name;
+  document.getElementById('inputCode').value     = c.code     || '';
+  document.getElementById('inputLink').value     = c.link     || '';
+  document.getElementById('inputCategory').value = c.category || 'Other';
+  document.getElementById('inputExpiry').value   = c.expiry;
+  document.getElementById('inputNotes').value    = c.notes    || '';
+  // Update modal title and button
+  document.getElementById('modalTitle').textContent  = '✎ Edit Coupon';
+  document.getElementById('submitBtn').textContent   = 'UPDATE COUPON';
+  document.getElementById('modalOverlay').classList.add('open');
 }
 
 function deleteCoupon(id) {
@@ -1190,6 +1223,9 @@ function checkURLImport() {
 // MODALS
 // ═══════════════════════════════════════════════
 function openModal() {
+  editingId = null;
+  document.getElementById('modalTitle').textContent = '✦ Add New Coupon';
+  document.getElementById('submitBtn').textContent  = 'SAVE COUPON';
   var today = new Date().toISOString().split('T')[0];
   document.getElementById('inputExpiry').min   = today;
   document.getElementById('inputExpiry').value = '';
